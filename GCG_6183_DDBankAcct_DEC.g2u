@@ -1,0 +1,66 @@
+Program.Sub.Preflight.Start
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'Project was created on the fly to help store the decrypted Bank Account numbers in a supplement table so it is printable on reports. 
+F.Intrinsic.Control.Try
+
+	V.Local.bExists.declare
+	V.Local.sError.Declare
+	V.Local.sBankAccount.Declare
+	V.Local.iCount.Declare
+	V.Local.sMsg.Declare
+	V.Local.sFile.Declare
+	V.Local.sMsg2.Declare
+	
+	V.Local.sMsg.Set("Decrypting and Saving Data")
+	F.Intrinsic.UI.InvokeWaitDialog("Loading Data",V.Local.sMsg)
+	
+	'Check if table exists
+	F.ODBC.Connection!conx.OpenCompanyConnection
+	
+'	F.Intrinsic.UI.ChangeWaitStatus("Create Table....")
+'	F.ODBC.Connection!conx.TableExists("GAB_BANKDD_DEC",v.Local.bExists)
+'	'Drop Table
+'	F.Intrinsic.control.If(v.Local.bExists)
+'		F.odbc.Connection!conx.Execute("DROP TABLE GAB_BANKDD_DEC")
+'	F.Intrinsic.Control.EndIf
+'	'Create Table
+'	F.ODBC.Connection!conx.Execute("CREATE TABLE GAB_BANKDD_DEC (EMPLOYEE NUMERIC(5,0),SEQ NUMERIC(2,0),BANK_ACCT_DEC VARCHAR(50));")
+	
+	'Grab the employee ID and Encrypted Bank Account 
+	F.Data.DataTable.CreateFromSQL("EMPDT","conx","Select Employee,Seq,BANK_ACCOUNT_ENC,'' as BANK_ACCT_DEC from V_PAYROLL_DD;")
+	'Loop through and decryupt Bank Account and store in table
+	F.Intrinsic.Control.For(v.Local.iCount,0,v.DataTable.EMPDT.RowCount--,1)
+		F.Intrinsic.UI.ChangeWaitStatus("Decrypting",v.Local.iCount,0,v.DataTable.EMPDT.RowCount--)
+		F.Global.Encryption.Decrypt(V.Datatable.EMPDT(v.Local.iCount).BANK_ACCOUNT_ENC!FieldVal,V.local.sBankAccount)
+		F.Data.DataTable.SetValue("EMPDT",v.Local.iCount,"BANK_ACCT_DEC",v.Local.sBankAccount.Trim)
+	F.Intrinsic.Control.Next(v.Local.iCount)
+	'Remove encrypted column to make Save to DB easy.
+	F.Data.DataTable.RemoveColumn("EMPDT","BANK_ACCOUNT_ENC")
+
+	'Save Data
+	F.Intrinsic.UI.ChangeWaitStatus("Saving Data....")
+	F.Intrinsic.UI.CloseWaitDialog
+	'F.Data.DataTable.SaveToDB("EMPDT","conx","GAB_BANKDD_DEC","EMPLOYEE*!*SEQ",256)
+	F.Intrinsic.String.Build("{0}GAB_BANKDD_DEC.csv",V.Caller.LocalGSSTempDir,V.Local.sFile)
+	F.Data.DataTable.SaveToCSV("EMPDT",V.Local.sFile,True)
+	
+	F.Intrinsic.String.Build("Processing Complete. File saved here: {0}",V.Local.sFile,V.Local.sMsg2)
+	F.Intrinsic.UI.Msgbox(V.Local.sMsg2,V.Local.sMsg)
+	F.Intrinsic.Task.ShellExec(0,"OPEN",V.Local.sFile,"","",1)
+	
+	F.ODBC.Connection!conx.Close
+	
+F.Intrinsic.Control.Catch
+	F.Intrinsic.String.Build("Project: {0}{1}{1}Subroutine: {2}{1}Error Occurred {3} with description {4}{1}{1}GAB Version: {5}",V.Ambient.ScriptPath,V.Ambient.Newline,V.Ambient.CurrentSubroutine,V.Ambient.ErrorNumber,V.Ambient.ErrorDescription,V.Ambient.GABVersion,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.ODBC.Connection!conx.Close()
+	F.Intrinsic.Control.End
+F.Intrinsic.Control.EndTry
+Program.Sub.Main.End
+
+Program.Sub.Comments.Start
+${$5$}$2.0.0.0$}$2
+${$6$}$avaldez$}$20201118095818968$}$CBUu04veoT9NExad5Mkb3ylWEN0INN4Amt0RL1Efv7N8V6DR0QKQ6rZwgLlOXlEnYmOteV2cxBc=
+Program.Sub.Comments.End
